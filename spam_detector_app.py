@@ -6,18 +6,27 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 
 # --------------------------------------------
-# One-time fix for malformed fraud_call.csv
+# One-time cleaner for malformed fraud_call.csv
 # --------------------------------------------
 def fix_fraud_call_file():
     try:
-        df = pd.read_csv("fraud_call.csv", header=None)
-        if df.shape[1] == 1 and df.columns[0] == 'message,label':
-            df[['message', 'label']] = df['message,label'].str.split(',', 1, expand=True)
-            df = df[['message', 'label']]
-            df.to_csv("fraud_call.csv", index=False)
-            st.warning("🛠️ fraud_call.csv was malformed and has been auto-fixed.")
+        with open("fraud_call.csv", "r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+        # Har line ko last comma (,) se split karo
+        data = []
+        for line in lines:
+            if ',' in line:
+                parts = line.strip().rsplit(',', 1)  # Split from right
+                if len(parts) == 2:
+                    data.append(parts)
+
+        df = pd.DataFrame(data, columns=["message", "label"])
+        df.to_csv("fraud_call.csv", index=False)
+        st.warning("🛠️ fraud_call.csv has been cleaned and saved.")
+
     except Exception as e:
-        st.error(f"❌ Error fixing fraud_call.csv: {e}")
+        st.error(f"❌ Could not fix fraud_call.csv: {e}")
 
 fix_fraud_call_file()
 
