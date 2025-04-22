@@ -23,7 +23,7 @@ def fix_fraud_call_file():
 
         df = pd.DataFrame(data, columns=["message", "label"])
         df.to_csv("fraud_call.csv", index=False)
-        st.warning("🛠️ fraud_call.csv has been cleaned and saved.")
+       # st.warning("🛠️ fraud_call.csv has been cleaned and saved.")
 
     except Exception as e:
         st.error(f"❌ Could not fix fraud_call.csv: {e}")
