@@ -6,25 +6,40 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 
 # --------------------------------------------
-# Universal model trainer with encoding support
+# Universal model trainer with robust CSV reading
 # --------------------------------------------
 def train_model(file_path, text_col, label_col, label_map=None):
     if not os.path.exists(file_path):
         st.error(f"🚫 File not found: {file_path}")
         return None, None
 
-    # Use 'latin-1' encoding for spam.csv, UTF-8 for others
+    # Choose encoding: spam.csv is known to use latin-1
     encoding = "latin-1" if "spam.csv" in file_path else "utf-8"
 
     try:
+        # Try reading as comma-separated
         df = pd.read_csv(file_path, encoding=encoding)
-    except UnicodeDecodeError:
-        st.error(f"⚠️ Encoding error while reading {file_path}. Try changing encoding.")
+    except pd.errors.ParserError:
+        try:
+            # Try tab-separated (TSV) fallback
+            df = pd.read_csv(file_path, encoding=encoding, delimiter='\t')
+        except Exception as e:
+            st.error(f"❌ Failed to read {file_path} with tab separator: {e}")
+            return None, None
+    except Exception as e:
+        st.error(f"❌ Failed to read {file_path}: {e}")
+        return None, None
+
+    # Validate column names
+    if text_col not in df.columns or label_col not in df.columns:
+        st.error(f"⚠️ Required columns '{text_col}' and '{label_col}' not found in {file_path}.")
+        st.info(f"📋 Columns found: {list(df.columns)}")
         return None, None
 
     df = df[[text_col, label_col]]
     if label_map:
         df[label_col] = df[label_col].map(label_map)
+
     X_train, _, y_train, _ = train_test_split(df[text_col], df[label_col], test_size=0.2, random_state=42)
     vectorizer = TfidfVectorizer()
     X_train_vec = vectorizer.fit_transform(X_train)
