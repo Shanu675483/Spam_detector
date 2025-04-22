@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import joblib
-import os
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
@@ -22,12 +21,11 @@ def train_sms_model():
     return model, vectorizer
 
 # --------------------------------------------
-# Load & train Call model (in-memory data)
+# Load & train Call model (corrected)
 # --------------------------------------------
 @st.cache_resource
 def train_call_model():
-    df = pd.read_csv("fraud_call.csv")
-    df.columns = ['message', 'label']
+    df = pd.read_csv("fraud_call.csv")  # This assumes the file has headers
     df['label'] = df['label'].map({'ham': 0, 'spam': 1})
     X_train, _, y_train, _ = train_test_split(df['message'], df['label'], test_size=0.2, random_state=42)
     vectorizer = TfidfVectorizer()
