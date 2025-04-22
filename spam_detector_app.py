@@ -6,6 +6,22 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 
 # --------------------------------------------
+# One-time fix for malformed fraud_call.csv
+# --------------------------------------------
+def fix_fraud_call_file():
+    try:
+        df = pd.read_csv("fraud_call.csv", header=None)
+        if df.shape[1] == 1 and df.columns[0] == 'message,label':
+            df[['message', 'label']] = df['message,label'].str.split(',', 1, expand=True)
+            df = df[['message', 'label']]
+            df.to_csv("fraud_call.csv", index=False)
+            st.warning("🛠️ fraud_call.csv was malformed and has been auto-fixed.")
+    except Exception as e:
+        st.error(f"❌ Error fixing fraud_call.csv: {e}")
+
+fix_fraud_call_file()
+
+# --------------------------------------------
 # Universal model trainer with robust CSV reading
 # --------------------------------------------
 def train_model(file_path, text_col, label_col, label_map=None):
@@ -13,15 +29,12 @@ def train_model(file_path, text_col, label_col, label_map=None):
         st.error(f"🚫 File not found: {file_path}")
         return None, None
 
-    # Choose encoding: spam.csv is known to use latin-1
     encoding = "latin-1" if "spam.csv" in file_path else "utf-8"
 
     try:
-        # Try reading as comma-separated
         df = pd.read_csv(file_path, encoding=encoding)
     except pd.errors.ParserError:
         try:
-            # Try tab-separated (TSV) fallback
             df = pd.read_csv(file_path, encoding=encoding, delimiter='\t')
         except Exception as e:
             st.error(f"❌ Failed to read {file_path} with tab separator: {e}")
@@ -30,7 +43,6 @@ def train_model(file_path, text_col, label_col, label_map=None):
         st.error(f"❌ Failed to read {file_path}: {e}")
         return None, None
 
-    # Validate column names
     if text_col not in df.columns or label_col not in df.columns:
         st.error(f"⚠️ Required columns '{text_col}' and '{label_col}' not found in {file_path}.")
         st.info(f"📋 Columns found: {list(df.columns)}")
