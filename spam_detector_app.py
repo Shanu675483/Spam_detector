@@ -1,47 +1,31 @@
 import streamlit as st
 import pandas as pd
-import joblib
+import os
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 
 # --------------------------------------------
-# Load & train SMS model
+# Universal model trainer with encoding support
 # --------------------------------------------
-@st.cache_resource
-def train_sms_model():
-    df = pd.read_csv("spam.csv", encoding="latin-1")[['v1', 'v2']]
-    df.columns = ['label', 'message']
-    df['label'] = df['label'].map({'ham': 0, 'spam': 1})
-    X_train, _, y_train, _ = train_test_split(df['message'], df['label'], test_size=0.2, random_state=42)
-    vectorizer = TfidfVectorizer()
-    X_train_vec = vectorizer.fit_transform(X_train)
-    model = LogisticRegression()
-    model.fit(X_train_vec, y_train)
-    return model, vectorizer
+def train_model(file_path, text_col, label_col, label_map=None):
+    if not os.path.exists(file_path):
+        st.error(f"🚫 File not found: {file_path}")
+        return None, None
 
-# --------------------------------------------
-# Load & train Call model (corrected)
-# --------------------------------------------
-@st.cache_resource
-def train_call_model():
-    df = pd.read_csv("fraud_call.csv")  # This assumes the file has headers
-    df['label'] = df['label'].map({'ham': 0, 'spam': 1})
-    X_train, _, y_train, _ = train_test_split(df['message'], df['label'], test_size=0.2, random_state=42)
-    vectorizer = TfidfVectorizer()
-    X_train_vec = vectorizer.fit_transform(X_train)
-    model = LogisticRegression()
-    model.fit(X_train_vec, y_train)
-    return model, vectorizer
+    # Use 'latin-1' encoding for spam.csv, UTF-8 for others
+    encoding = "latin-1" if "spam.csv" in file_path else "utf-8"
 
-# --------------------------------------------
-# Load & train Email model
-# --------------------------------------------
-@st.cache_resource
-def train_email_model():
-    df = pd.read_csv("spam_ham_dataset.csv")
-    df = df[['text', 'label_num']]  # 'text' column for email, 'label_num' as 0=ham, 1=spam
-    X_train, _, y_train, _ = train_test_split(df['text'], df['label_num'], test_size=0.2, random_state=42)
+    try:
+        df = pd.read_csv(file_path, encoding=encoding)
+    except UnicodeDecodeError:
+        st.error(f"⚠️ Encoding error while reading {file_path}. Try changing encoding.")
+        return None, None
+
+    df = df[[text_col, label_col]]
+    if label_map:
+        df[label_col] = df[label_col].map(label_map)
+    X_train, _, y_train, _ = train_test_split(df[text_col], df[label_col], test_size=0.2, random_state=42)
     vectorizer = TfidfVectorizer()
     X_train_vec = vectorizer.fit_transform(X_train)
     model = LogisticRegression()
@@ -51,14 +35,18 @@ def train_email_model():
 # --------------------------------------------
 # Load all models
 # --------------------------------------------
-sms_model, sms_vectorizer = train_sms_model()
-call_model, call_vectorizer = train_call_model()
-email_model, email_vectorizer = train_email_model()
+@st.cache_resource
+def load_models():
+    sms_model, sms_vectorizer = train_model("spam.csv", "v2", "v1", {'ham': 0, 'spam': 1})
+    call_model, call_vectorizer = train_model("fraud_call.csv", "message", "label", {'ham': 0, 'spam': 1})
+    email_model, email_vectorizer = train_model("spam_ham_dataset.csv", "text", "label_num")
+    return sms_model, sms_vectorizer, call_model, call_vectorizer, email_model, email_vectorizer
+
+sms_model, sms_vectorizer, call_model, call_vectorizer, email_model, email_vectorizer = load_models()
 
 # --------------------------------------------
 # Streamlit Interface
 # --------------------------------------------
-
 st.title("📲 Universal Spam Detector")
 st.write("Choose the type of spam detection you want to perform:")
 
@@ -70,7 +58,7 @@ if choice == "📩 SMS Spam":
     if st.button("Predict SMS Spam"):
         if not user_input.strip():
             st.warning("Please enter a message.")
-        else:
+        elif sms_model and sms_vectorizer:
             vec = sms_vectorizer.transform([user_input])
             pred = sms_model.predict(vec)[0]
             result = "📮 Not Spam (Ham)" if pred == 0 else "🚫 Spam"
@@ -82,7 +70,7 @@ elif choice == "📞 Call Spam":
     if st.button("Predict Call Spam"):
         if not user_input.strip():
             st.warning("Please enter call content.")
-        else:
+        elif call_model and call_vectorizer:
             vec = call_vectorizer.transform([user_input])
             prob = call_model.predict_proba(vec)[0][1]
             if prob > 0.4:
@@ -96,7 +84,7 @@ elif choice == "📧 Email Spam":
     if st.button("Predict Email Spam"):
         if not user_input.strip():
             st.warning("Please enter email content.")
-        else:
+        elif email_model and email_vectorizer:
             vec = email_vectorizer.transform([user_input])
             pred = email_model.predict(vec)[0]
             result = "📧 Not Spam (Ham)" if pred == 0 else "🛑 Spam Email"
