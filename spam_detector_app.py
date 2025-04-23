@@ -11,6 +11,7 @@ import joblib
 # Train model with fallback and safety checks
 # --------------------------------------------
 def train_model(file_path, text_col, label_col, label_map=None, model_type="naive_bayes"):
+    # fallback data as a DataFrame
     fallback = pd.DataFrame({
         "message": [
             "You've won a free prize! Call now!",
@@ -21,18 +22,24 @@ def train_model(file_path, text_col, label_col, label_map=None, model_type="naiv
         "label": ["spam", "ham", "spam", "ham"]
     })
 
+    # Decide encoding: यदि spam.csv है तो latin-1 अन्यथा utf-8
+    encoding = "utf-8"
+    if "spam.csv" in file_path:
+        encoding = "latin-1"
+
     if not os.path.exists(file_path):
         st.warning(f"⚠️ File not found: {file_path}. Using fallback data.")
         df = fallback
     else:
         try:
-            df = pd.read_csv(file_path, encoding="utf-8")
+            df = pd.read_csv(file_path, encoding=encoding)
         except Exception as e:
             st.warning(f"⚠️ Failed to read {file_path}: {e}. Using fallback.")
             df = fallback
 
+    # अगर expected columns नहीं मिले तो fallback data use करें
     if text_col not in df.columns or label_col not in df.columns:
-        st.warning(f"⚠️ Columns '{text_col}' or '{label_col}' not found. Using fallback.")
+        st.warning(f"⚠️ Columns '{text_col}' or '{label_col}' not found in {file_path}. Using fallback data.")
         df = fallback
         text_col = "message"
         label_col = "label"
@@ -42,7 +49,7 @@ def train_model(file_path, text_col, label_col, label_map=None, model_type="naiv
         df[label_col] = df[label_col].map(label_map)
 
     if df.shape[0] < 2:
-        st.warning(f"⚠️ Not enough data to train. Using fallback.")
+        st.warning(f"⚠️ Not enough data in {file_path}. Using fallback data.")
         df = fallback
         text_col = "message"
         label_col = "label"
@@ -58,13 +65,14 @@ def train_model(file_path, text_col, label_col, label_map=None, model_type="naiv
     return model, vectorizer
 
 # --------------------------------------------
-# Load all models and vectorizers
+# Load all models and vectorizers using absolute paths
 # --------------------------------------------
 @st.cache_resource
 def load_models():
-    sms_model, sms_vectorizer = train_model("spam.csv", "v2", "v1", {'ham': 0, 'spam': 1})
-    call_model, call_vectorizer = train_model("fraud_call.csv", "message", "label", {'ham': 0, 'spam': 1})
-    email_model, email_vectorizer = train_model("spam_ham_dataset.csv", "text", "label_num")
+    # ध्यान दें: file paths /mnt/data/ में सेव की गई CSV files को point कर रहे हैं
+    sms_model, sms_vectorizer = train_model("/mnt/data/spam.csv", "v2", "v1", {'ham': 0, 'spam': 1})
+    call_model, call_vectorizer = train_model("/mnt/data/fraud_call.csv", "message", "label", {'ham': 0, 'spam': 1})
+    email_model, email_vectorizer = train_model("/mnt/data/spam_ham_dataset.csv", "text", "label_num")
     return sms_model, sms_vectorizer, call_model, call_vectorizer, email_model, email_vectorizer
 
 # Load models once
@@ -78,7 +86,6 @@ st.write("Choose the type of spam detection you want to perform:")
 
 choice = st.selectbox("Select detection type:", ["📩 SMS Spam", "📞 Call Spam", "📧 Email Spam"])
 
-# ---------------- SMS Spam ----------------
 if choice == "📩 SMS Spam":
     st.subheader("SMS Spam Detection")
     user_input = st.text_area("Enter an SMS message:")
@@ -91,7 +98,6 @@ if choice == "📩 SMS Spam":
             result = "📮 Not Spam (Ham)" if pred == 0 else "🚫 Spam"
             st.success(f"Prediction: **{result}**")
 
-# ---------------- Call Spam ----------------
 elif choice == "📞 Call Spam":
     st.subheader("Call Spam Detection")
     user_input = st.text_area("Describe the call:")
@@ -106,7 +112,6 @@ elif choice == "📞 Call Spam":
             else:
                 st.success(f"✅ Likely Safe Call ({(1 - prob)*100:.1f}% confidence)")
 
-# ---------------- Email Spam ----------------
 elif choice == "📧 Email Spam":
     st.subheader("Email Spam Detection")
     user_input = st.text_area("Paste your email text:")
