@@ -6,15 +6,13 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import MultinomialNB
 
-# --------------------------------------------
-# Train model
-# --------------------------------------------
 def train_model(file_path, text_col, label_col, label_map=None, model_type="naive_bayes"):
     encoding = "utf-8"
     if "spam.csv" in file_path:
         encoding = "latin-1"
-    
+
     try:
+        st.info(f"📄 Loading file: {file_path}")
         df = pd.read_csv(file_path, encoding=encoding)
     except Exception as e:
         st.error(f"❌ Error reading {file_path}: {e}")
@@ -22,7 +20,7 @@ def train_model(file_path, text_col, label_col, label_map=None, model_type="naiv
 
     if text_col not in df.columns or label_col not in df.columns:
         st.error(f"❌ Columns '{text_col}' or '{label_col}' not found in {file_path}.")
-        st.info(f"📌 Available columns: {list(df.columns)}")
+        st.info(f"Available columns: {list(df.columns)}")
         return None, None
 
     df = df[[text_col, label_col]].dropna()
@@ -43,9 +41,6 @@ def train_model(file_path, text_col, label_col, label_map=None, model_type="naiv
 
     return model, vectorizer
 
-# --------------------------------------------
-# Load models
-# --------------------------------------------
 @st.cache_resource
 def load_models():
     sms_model, sms_vectorizer = train_model("spam.csv", "v2", "v1", {'ham': 0, 'spam': 1})
@@ -55,9 +50,6 @@ def load_models():
 
 sms_model, sms_vectorizer, call_model, call_vectorizer, email_model, email_vectorizer = load_models()
 
-# --------------------------------------------
-# Streamlit UI
-# --------------------------------------------
 st.title("📲 Universal Spam Detector")
 st.write("Choose the type of spam detection you want to perform:")
 
