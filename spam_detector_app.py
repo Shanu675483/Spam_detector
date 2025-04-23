@@ -5,15 +5,15 @@ from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import MultinomialNB
-import joblib
 
 # --------------------------------------------
-# Train model with better error handling
+# Train model
 # --------------------------------------------
 def train_model(file_path, text_col, label_col, label_map=None, model_type="naive_bayes"):
     encoding = "utf-8"
     if "spam.csv" in file_path:
         encoding = "latin-1"
+    
     try:
         df = pd.read_csv(file_path, encoding=encoding)
     except Exception as e:
@@ -44,13 +44,13 @@ def train_model(file_path, text_col, label_col, label_map=None, model_type="naiv
     return model, vectorizer
 
 # --------------------------------------------
-# Load all models (correct file names)
+# Load models
 # --------------------------------------------
 @st.cache_resource
 def load_models():
-    sms_model, sms_vectorizer = train_model("/mnt/data/spam.csv.csv", "v2", "v1", {'ham': 0, 'spam': 1})
-    call_model, call_vectorizer = train_model("/mnt/data/fraud_call.csv.csv", "message", "label", {'ham': 0, 'spam': 1})
-    email_model, email_vectorizer = train_model("/mnt/data/spam_ham_dataset.csv.csv", "text", "label_num")
+    sms_model, sms_vectorizer = train_model("spam.csv", "v2", "v1", {'ham': 0, 'spam': 1})
+    call_model, call_vectorizer = train_model("fraud_call.csv", "message", "label", {'ham': 0, 'spam': 1})
+    email_model, email_vectorizer = train_model("spam_ham_dataset.csv", "text", "label_num")
     return sms_model, sms_vectorizer, call_model, call_vectorizer, email_model, email_vectorizer
 
 sms_model, sms_vectorizer, call_model, call_vectorizer, email_model, email_vectorizer = load_models()
