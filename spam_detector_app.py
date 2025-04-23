@@ -8,51 +8,30 @@ from sklearn.naive_bayes import MultinomialNB
 import joblib
 
 # --------------------------------------------
-# Train model with fallback and safety checks
+# Train model with better error handling
 # --------------------------------------------
 def train_model(file_path, text_col, label_col, label_map=None, model_type="naive_bayes"):
-    # fallback data as a DataFrame
-    fallback = pd.DataFrame({
-        "message": [
-            "You've won a free prize! Call now!",
-            "This is your friend calling. Let's meet later.",
-            "Congratulations! You have been selected for a free vacation.",
-            "Hi, just checking in. No spam here."
-        ],
-        "label": ["spam", "ham", "spam", "ham"]
-    })
-
-    # Decide encoding: यदि spam.csv है तो latin-1 अन्यथा utf-8
     encoding = "utf-8"
     if "spam.csv" in file_path:
         encoding = "latin-1"
+    try:
+        df = pd.read_csv(file_path, encoding=encoding)
+    except Exception as e:
+        st.error(f"❌ Error reading {file_path}: {e}")
+        return None, None
 
-    if not os.path.exists(file_path):
-        st.warning(f"⚠️ File not found: {file_path}. Using fallback data.")
-        df = fallback
-    else:
-        try:
-            df = pd.read_csv(file_path, encoding=encoding)
-        except Exception as e:
-            st.warning(f"⚠️ Failed to read {file_path}: {e}. Using fallback.")
-            df = fallback
-
-    # अगर expected columns नहीं मिले तो fallback data use करें
     if text_col not in df.columns or label_col not in df.columns:
-        st.warning(f"⚠️ Columns '{text_col}' or '{label_col}' not found in {file_path}. Using fallback data.")
-        df = fallback
-        text_col = "message"
-        label_col = "label"
+        st.error(f"❌ Columns '{text_col}' or '{label_col}' not found in {file_path}.")
+        st.info(f"📌 Available columns: {list(df.columns)}")
+        return None, None
 
     df = df[[text_col, label_col]].dropna()
     if label_map:
         df[label_col] = df[label_col].map(label_map)
 
     if df.shape[0] < 2:
-        st.warning(f"⚠️ Not enough data in {file_path}. Using fallback data.")
-        df = fallback
-        text_col = "message"
-        label_col = "label"
+        st.error(f"❌ Not enough data in {file_path} to train model.")
+        return None, None
 
     X_train, _, y_train, _ = train_test_split(df[text_col], df[label_col], test_size=0.2, random_state=42)
 
@@ -65,17 +44,15 @@ def train_model(file_path, text_col, label_col, label_map=None, model_type="naiv
     return model, vectorizer
 
 # --------------------------------------------
-# Load all models and vectorizers using absolute paths
+# Load all models (correct file names)
 # --------------------------------------------
 @st.cache_resource
 def load_models():
-    # ध्यान दें: file paths /mnt/data/ में सेव की गई CSV files को point कर रहे हैं
-    sms_model, sms_vectorizer = train_model("/mnt/data/spam.csv", "v2", "v1", {'ham': 0, 'spam': 1})
-    call_model, call_vectorizer = train_model("/mnt/data/fraud_call.csv", "message", "label", {'ham': 0, 'spam': 1})
-    email_model, email_vectorizer = train_model("/mnt/data/spam_ham_dataset.csv", "text", "label_num")
+    sms_model, sms_vectorizer = train_model("/mnt/data/spam.csv.csv", "v2", "v1", {'ham': 0, 'spam': 1})
+    call_model, call_vectorizer = train_model("/mnt/data/fraud_call.csv.csv", "message", "label", {'ham': 0, 'spam': 1})
+    email_model, email_vectorizer = train_model("/mnt/data/spam_ham_dataset.csv.csv", "text", "label_num")
     return sms_model, sms_vectorizer, call_model, call_vectorizer, email_model, email_vectorizer
 
-# Load models once
 sms_model, sms_vectorizer, call_model, call_vectorizer, email_model, email_vectorizer = load_models()
 
 # --------------------------------------------
