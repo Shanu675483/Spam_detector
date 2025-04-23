@@ -5,10 +5,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import MultinomialNB
-import joblib
 
 # --------------------------------------------
-# CSV Cleaner for malformed call data
+# CSV Cleaner for malformed spam_calls.csv
 # --------------------------------------------
 def fix_fraud_call_file():
     try:
@@ -24,12 +23,12 @@ def fix_fraud_call_file():
         df.to_csv("spam_calls.csv", index=False)
         st.warning("🛠️ spam_calls.csv has been cleaned and saved.")
     except Exception as e:
-        st.error(f"❌ Could not fix fraud_call.csv: {e}")
+        st.error(f"❌ Could not fix spam_calls.csv: {e}")
 
 fix_fraud_call_file()
 
 # --------------------------------------------
-# Train model with better preprocessing
+# Train model with improved preprocessing
 # --------------------------------------------
 def train_model(file_path, text_col, label_col, label_map=None, model_type="naive_bayes"):
     if not os.path.exists(file_path):
@@ -49,17 +48,11 @@ def train_model(file_path, text_col, label_col, label_map=None, model_type="naiv
     df = df[[text_col, label_col]]
     if label_map:
         df[label_col] = df[label_col].map(label_map)
+        df = df.dropna(subset=[label_col])  # Drop unmapped labels
 
     X_train, _, y_train, _ = train_test_split(df[text_col], df[label_col], test_size=0.2, random_state=42)
 
-    # Upgraded vectorizer
-    vectorizer = TfidfVectorizer(
-        lowercase=True,
-        stop_words=None,
-        ngram_range=(1, 2),
-        min_df=1
-    )
-
+    vectorizer = TfidfVectorizer(lowercase=True, stop_words=None, ngram_range=(1, 2), min_df=1)
     X_train_vec = vectorizer.fit_transform(X_train)
 
     if model_type == "naive_bayes":
@@ -71,7 +64,7 @@ def train_model(file_path, text_col, label_col, label_map=None, model_type="naiv
     return model, vectorizer
 
 # --------------------------------------------
-# Load models and vectorizers
+# Load all models once and cache
 # --------------------------------------------
 @st.cache_resource
 def load_models():
@@ -83,7 +76,7 @@ def load_models():
 sms_model, sms_vectorizer, call_model, call_vectorizer, email_model, email_vectorizer = load_models()
 
 # --------------------------------------------
-# Streamlit UI
+# Streamlit Interface
 # --------------------------------------------
 st.title("📲 Universal Spam Detector")
 st.write("Choose the type of spam detection you want to perform:")
@@ -93,7 +86,6 @@ choice = st.selectbox("Select detection type:", ["📩 SMS Spam", "📞 Call Spa
 if choice == "📩 SMS Spam":
     st.subheader("SMS Spam Detection")
     user_input = st.text_area("Enter an SMS message:")
-
     if st.button("Predict SMS Spam"):
         if not user_input.strip():
             st.warning("Please enter a message.")
@@ -106,7 +98,7 @@ if choice == "📩 SMS Spam":
 
 elif choice == "📞 Call Spam":
     st.subheader("Call Spam Detection")
-    user_input = st.text_area("Describe the call (e.g., 'You’ve won a prize'):")    
+    user_input = st.text_area("Describe the call (e.g., 'You’ve won a prize'):")
     if st.button("Predict Call Spam"):
         if not user_input.strip():
             st.warning("Please enter call content.")
