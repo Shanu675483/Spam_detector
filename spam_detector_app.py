@@ -12,7 +12,7 @@ import joblib
 # --------------------------------------------
 def fix_fraud_call_file():
     try:
-        with open("fraud_call.csv", "r", encoding="utf-8") as f:
+        with open("spam_calls.csv", "r", encoding="utf-8") as f:
             lines = f.readlines()
         data = []
         for line in lines:
@@ -21,8 +21,8 @@ def fix_fraud_call_file():
                 if len(parts) == 2:
                     data.append(parts)
         df = pd.DataFrame(data, columns=["message", "label"])
-        df.to_csv("fraud_call.csv", index=False)
-        st.warning("🛠️ fraud_call.csv has been cleaned and saved.")
+        df.to_csv("spam_calls.csv", index=False)
+        st.warning("🛠️ spam_calls.csv has been cleaned and saved.")
     except Exception as e:
         st.error(f"❌ Could not fix fraud_call.csv: {e}")
 
@@ -76,7 +76,7 @@ def train_model(file_path, text_col, label_col, label_map=None, model_type="naiv
 @st.cache_resource
 def load_models():
     sms_model, sms_vectorizer = train_model("spam.csv", "v2", "v1", {'ham': 0, 'spam': 1})
-    call_model, call_vectorizer = train_model("fraud_call.csv", "message", "label", {'ham': 0, 'spam': 1})
+    call_model, call_vectorizer = train_model("spam_calls.csv", "message", "label", {'ham': 0, 'spam': 1})
     email_model, email_vectorizer = train_model("spam_ham_dataset.csv", "text", "label_num")
     return sms_model, sms_vectorizer, call_model, call_vectorizer, email_model, email_vectorizer
 
